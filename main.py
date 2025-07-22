@@ -6,6 +6,7 @@ import random
 import asyncio
 import os
 from dotenv import load_dotenv
+import re
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -15,6 +16,30 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 giveaways = {}  # Stores giveaway data by message_id
+
+def parse_duration(duration_str):
+    """
+    Parses a duration string like '10s', '5m', '1d', '2w', '1mo', '1y'
+    and returns total seconds as int or None if invalid.
+    """
+    time_units = {
+        "s": 1,
+        "m": 60,
+        "h": 3600,
+        "d": 86400,
+        "w": 604800,
+        "mo": 2592000,  # 30 days
+        "y": 31536000
+    }
+
+    pattern = r"^(\d+)(s|m|h|d|w|mo|y)$"
+    match = re.match(pattern, duration_str)
+
+    if not match:
+        return None
+
+    value, unit = match.groups()
+    return int(value) * time_units[unit]
 
 class GiveawayButton(Button):
     def __init__(self, message_id: int):
@@ -55,11 +80,28 @@ async def on_ready():
         print(f"❌ Failed to sync commands: {e}")
 
 @bot.tree.command(name="giveaway", description="Start a giveaway")
-@app_commands.describe(duration="Time in seconds", winners="Number of winners", prize="Giveaway prize")
-async def giveaway(interaction: discord.Interaction, duration: int, winners: int, prize: str):
+@app_commands.describe(
+    duration="Time (e.g. 10s, 5m, 2h, 1d, 2w, 1mo, 1y)",
+    winners="Number of winners",
+    prize="Giveaway prize"
+)
+async def giveaway(interaction: discord.Interaction, duration: str, winners: int, prize: str):
+    seconds = parse_duration(duration.lower())
+    if seconds is None:
+        await interaction.response.send_message(
+            "❌ Invalid duration format.\nUse examples like: `10s`, `5m`, `1d`, `2w`, `1mo`, `1y`.",
+            ephemeral=True
+        )
+        return
+
     embed = discord.Embed(
         title="🎉 New Giveaway!",
-        description=f"**Prize:** {prize}\n**Winners:** {winners}\n⏳ Ends in: {duration} seconds\nClick the button to enter!",
+        description=(
+            f"**Prize:** {prize}\n"
+            f"**Winners:** {winners}\n"
+            f"⏳ Ends in: {duration}\n"
+            "Click the button to enter!"
+        ),
         color=discord.Color.red()
     )
     msg = await interaction.channel.send(embed=embed, view=GiveawayView(0))  # temp ID
@@ -68,7 +110,7 @@ async def giveaway(interaction: discord.Interaction, duration: int, winners: int
     await msg.edit(view=GiveawayView(msg.id))  # real ID now
     await interaction.response.send_message("✅ Giveaway started!", ephemeral=True)
 
-    await asyncio.sleep(duration)
+    await asyncio.sleep(seconds)
     await end_giveaway_by_id(msg.id, interaction.channel)
 
 async def end_giveaway_by_id(message_id: int, channel):
@@ -128,6 +170,5 @@ async def reroll(interaction: discord.Interaction, message_id: str):
     except Exception as e:
         await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
-# Run the bot
 if __name__ == "__main__":
     bot.run(TOKEN)
