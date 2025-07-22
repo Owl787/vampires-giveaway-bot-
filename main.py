@@ -1,24 +1,22 @@
-import discord from discord.ext import commands, tasks from discord import app_commands import asyncio import random import re from datetime import datetime, timedelta, timezone
+import discord from discord.ext import commands, tasks from discord import app_commands import asyncio import re from datetime import datetime, timedelta import random import os
 
-intents = discord.Intents.default() intents.message_content = True intents.guilds = True intents.members = True
+intents = discord.Intents.default() intents.message_content = True tree = app_commands.CommandTree(commands.Bot(command_prefix="!", intents=intents)) bot = commands.Bot(command_prefix="!", intents=intents)
 
-bot = commands.Bot(command_prefix="!", intents=intents) giveaways = {}
+In-memory giveaway storage
+
+giveaways = {}
 
 Duration parser: 1d2h30m10s -> timedelta
 
-TIME_REGEX = re.compile(r"(\d+)([smhdwmy])")
-
-UNIT_MAP = { 's': 'seconds', 'm': 'minutes', 'h': 'hours', 'd': 'days', 'w': ('days', 7), 'y': ('days', 365) }
-
-def parse_duration(duration_str): total = timedelta() for amount, unit in TIME_REGEX.findall(duration_str.lower()): if unit in ('w', 'y'): unit_name, multiplier = UNIT_MAP[unit] kwargs = {unit_name: int(amount) * multiplier} else: kwargs = {UNIT_MAP[unit]: int(amount)} total += timedelta(**kwargs) return total
+def parse_duration(duration_str): time_units = { "s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800, "mo": 2592000, "y": 31536000 } pattern = r"(\d+)(s|m|h|d|w|mo|y)" matches = re.findall(pattern, duration_str) if not matches: return None total_seconds = sum(int(value) * time_units[unit] for value, unit in matches) return timedelta(seconds=total_seconds)
 
 class GiveawayButton(discord.ui.View): def init(self, message_id): super().init(timeout=None) self.message_id = message_id
 
 @discord.ui.button(label="🎉 Join Giveaway", style=discord.ButtonStyle.danger)
 async def join_button(self, interaction: discord.Interaction, button: discord.ui.Button):
     user_id = interaction.user.id
-
     giveaway = giveaways.get(self.message_id)
+
     if not giveaway or giveaway["ended"]:
         await interaction.response.send_message("❌ This giveaway has ended.", ephemeral=True)
         return
@@ -35,11 +33,8 @@ async def join_button(self, interaction: discord.Interaction, button: discord.ui
         message = await interaction.channel.fetch_message(self.message_id)
         embed = message.embeds[0]
 
-        new_desc = re.sub(
-            r"\*\*Participants:\*\* \d+",
-            f"**Participants:** {len(giveaway['participants'])}",
-            embed.description
-        )
+        # Update or add participants count
+        new_desc = re.sub(r"\*\*Participants:\*\* \d+", f"**Participants:** {len(giveaway['participants'])}", embed.description or "")
         if "**Participants:**" not in new_desc:
             new_desc += f"\n**Participants:** {len(giveaway['participants'])}"
 
@@ -50,117 +45,88 @@ async def join_button(self, interaction: discord.Interaction, button: discord.ui
     except Exception as e:
         print(f"Failed to update giveaway message: {e}")
 
-@bot.event async def on_ready(): print(f"Logged in as {bot.user}") try: synced = await bot.tree.sync() print(f"Synced {len(synced)} command(s)") except Exception as e: print(f"Sync error: {e}")
-
-@bot.tree.command(name="giveaway", description="Start a giveaway") @app_commands.describe(duration="e.g. 1d2h30m", prize="The prize to give away", winners="Number of winners") async def giveaway(interaction: discord.Interaction, duration: str, prize: str, winners: int): delta = parse_duration(duration) end_time = datetime.now(timezone.utc) + delta timestamp = int(end_time.timestamp())
-
-embed = discord.Embed(
-    title=f"🎁 {prize}",
-    description=(
-        "Click the giveaway button to join the giveaway!\n"
-        f"**Hosted By:** {interaction.user.mention}\n"
-        f"**Ends:** <t:{timestamp}:R> (<t:{timestamp}:f>)\n"
-        f"**Participants:** 0"
-    ),
-    color=discord.Color.red()
-)
-view = GiveawayButton(None)
-msg = await interaction.channel.send(embed=embed, view=view)
-view.message_id = msg.id
-
-giveaways[msg.id] = {
-    "participants": set(),
-    "end_time": end_time,
-    "prize": prize,
-    "host": interaction.user,
-    "winners": winners,
-    "ended": False
-}
-await interaction.response.send_message("✅ Giveaway started!", ephemeral=True)
-
-await asyncio.sleep(delta.total_seconds())
-await end_giveaway_by_id(msg.id, interaction.channel)
-
-@bot.tree.command(name="reroll", description="Reroll a giveaway by message ID") @app_commands.describe(message_id="The giveaway message ID to reroll") async def reroll(interaction: discord.Interaction, message_id: str): try: msg_id = int(message_id) giveaway = giveaways.get(msg_id) if not giveaway: await interaction.response.send_message("❌ Giveaway not found.", ephemeral=True) return
-
-if not giveaway["ended"]:
-        await interaction.response.send_message("❌ Giveaway is still running.", ephemeral=True)
-        return
-
-    await end_giveaway_by_id(msg_id, interaction.channel, force_reroll=True)
-    await interaction.response.send_message("🔁 Giveaway rerolled!", ephemeral=True)
-except Exception as e:
-    await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-
-@bot.tree.command(name="endgiveaway", description="End a giveaway manually by message ID") @app_commands.describe(message_id="The giveaway message ID to end") async def endgiveaway(interaction: discord.Interaction, message_id: str): try: msg_id = int(message_id) if msg_id not in giveaways: await interaction.response.send_message("❌ Giveaway not found.", ephemeral=True) return
-
-await end_giveaway_by_id(msg_id, interaction.channel, ended_by=interaction.user)
-    await interaction.response.send_message("✅ Giveaway ended manually.", ephemeral=True)
-except Exception as e:
-    await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-
-async def end_giveaway_by_id(message_id: int, channel, ended_by=None, force_reroll=False): giveaway = giveaways.get(message_id) if not giveaway: return
-
-if not force_reroll and giveaway["ended"]:
-    return
+async def end_giveaway(message_id, channel): giveaway = giveaways.get(message_id) if not giveaway or giveaway["ended"]: return
 
 giveaway["ended"] = True
 participants = list(giveaway["participants"])
-prize = giveaway["prize"]
-host = giveaway["host"]
-end_time = int(datetime.now(timezone.utc).timestamp())
-winner_count = giveaway["winners"]
-participant_count = len(participants)
+winners = random.sample(participants, min(giveaway["winners"], len(participants))) if participants else []
 
-if participant_count == 0:
-    embed = discord.Embed(
-        title="🎁 This giveaway has ended!",
-        description=(
-            f"**Hosted By:** {host.mention}\n"
-            f"❌ No one joined the giveaway.\n"
-            f"**Ended:** <t:{end_time}:R> (<t:{end_time}:f>)"
-        ),
-        color=discord.Color.dark_gray()
+try:
+    message = await channel.fetch_message(message_id)
+    embed = message.embeds[0]
+    embed.color = discord.Color.dark_gray()
+    embed.title = "🎉 Giveaway Ended!"
+    embed.description = (
+        f"**This giveaway has ended!**\n"
+        f"Hosted By: <@{giveaway['host']}>\n"
+        f"Winners: {', '.join(f'<@{w}>' for w in winners) if winners else 'None'}\n"
+        f"Ended: <t:{int(datetime.utcnow().timestamp())}:R> (<t:{int(datetime.utcnow().timestamp())}:f>)\n"
+        f"**Participants:** {len(participants)}"
     )
-    await channel.send(embed=embed)
-    return
+    await message.edit(embed=embed, view=None)
 
-if participant_count < winner_count:
-    winner_count = participant_count
+    # DM winners
+    for winner_id in winners:
+        try:
+            user = await bot.fetch_user(winner_id)
+            dm_embed = discord.Embed(
+                title="🎊 Congratulations!",
+                description=f"You won the giveaway for **{giveaway['prize']}**!",
+                color=discord.Color.gold()
+            )
+            dm_embed.set_thumbnail(url="https://cdn-icons-png.flaticon.com/512/1029/1029183.png")
+            dm_embed.add_field(name="Ended At", value=f"<t:{int(datetime.utcnow().timestamp())}:F>")
+            dm_embed.set_footer(text="Enjoy your prize! 🥳")
+            await user.send(content=f"Congratulations <@{winner_id}>! 🎉", embed=dm_embed)
+        except:
+            print(f"Failed to DM user {winner_id}")
 
-winners = random.sample(participants, winner_count)
-winner_mentions = ", ".join(f"<@{uid}>" for uid in winners)
+except Exception as e:
+    print(f"Failed to edit giveaway end: {e}")
+
+@tree.command(name="giveaway") @app_commands.describe(duration="e.g. 1d2h30m", winners="Number of winners", prize="Giveaway prize") async def giveaway(interaction: discord.Interaction, duration: str, winners: int, prize: str): delta = parse_duration(duration) if not delta: await interaction.response.send_message("❌ Invalid duration format.", ephemeral=True) return
+
+end_time = datetime.utcnow() + delta
+timestamp = int(end_time.timestamp())
 
 embed = discord.Embed(
-    title="🎁 This giveaway has ended!",
+    title=prize,
     description=(
-        f"**Hosted By:** {host.mention}\n"
-        f"**Winners:** {winner_mentions}\n"
-        f"**Participants:** {participant_count}\n"
-        f"**Ended:** <t:{end_time}:R> (<t:{end_time}:f>)"
+        "Click the giveaway button to join the giveaway!\n"
+        f"Hosted By: <@{interaction.user.id}>\n"
+        f"Ends: <t:{timestamp}:R> (<t:{timestamp}:f>)"
     ),
-    color=discord.Color.dark_gray()
+    color=discord.Color.red()
 )
-await channel.send(embed=embed)
 
-for winner_id in winners:
-    user = await bot.fetch_user(winner_id)
-    if user:
-        try:
-            dm = discord.Embed(
-                title="🎉 Congratulations!",
-                description=(
-                    f"Hey {user.mention}, you won the giveaway!\n\n"
-                    f"**Prize:** {prize}\n"
-                    f"**Participants:** {participant_count}\n"
-                    f"**Time:** <t:{end_time}:F>"
-                ),
-                color=discord.Color.green()
-            )
-            dm.set_image(url="https://cdn.discordapp.com/attachments/your_image_here.png")  # Optional image
-            await user.send(embed=dm)
-        except:
-            pass
+view = GiveawayButton(None)
+message = await interaction.channel.send(embed=embed, view=view)
 
-bot.run("YOUR_BOT_TOKEN")
+view.message_id = message.id
+giveaways[message.id] = {
+    "host": interaction.user.id,
+    "winners": winners,
+    "prize": prize,
+    "end_time": end_time,
+    "participants": set(),
+    "ended": False
+}
+
+await interaction.response.send_message(f"🎉 Giveaway started for **{prize}**!", ephemeral=True)
+
+await asyncio.sleep(delta.total_seconds())
+await end_giveaway(message.id, interaction.channel)
+
+@tree.command(name="endgiveaway") @app_commands.describe(message_id="Giveaway message ID") async def endgiveaway(interaction: discord.Interaction, message_id: str): try: message_id = int(message_id) await end_giveaway(message_id, interaction.channel) await interaction.response.send_message("✅ Giveaway ended manually.", ephemeral=True) except: await interaction.response.send_message("❌ Failed to end giveaway.", ephemeral=True)
+
+@tree.command(name="reroll") @app_commands.describe(message_id="Giveaway message ID") async def reroll(interaction: discord.Interaction, message_id: str): giveaway = giveaways.get(int(message_id)) if not giveaway or not giveaway["ended"]: await interaction.response.send_message("❌ Invalid or ongoing giveaway.", ephemeral=True) return
+
+participants = list(giveaway["participants"])
+winners = random.sample(participants, min(giveaway["winners"], len(participants))) if participants else []
+
+await interaction.channel.send(f"🔁 Rerolled winners: {', '.join(f'<@{w}>' for w in winners) if winners else 'None'}")
+
+@bot.event async def on_ready(): await tree.sync() print(f"✅ Logged in as {bot.user}")
+
+bot.run(os.getenv("DISCORD_TOKEN"))
 
