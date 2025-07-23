@@ -91,10 +91,11 @@ async def giveaway_command(interaction: discord.Interaction, prize: str, duratio
     await interaction.channel.send("🎉 **Giveaway** 🎉")
     
     embed = discord.Embed(
-        ":kiyudot: **React** with 🎉 to __enter__!\n"
-            f":kiyudot: **Ends** <t:{int(end_time.timestamp())}:R>\n\n"
-        color=discord.Color.red()
-    )
+        description=(
+    "<:kiyudot:1310311419878834267> **React** with 🎉 to __enter__!\n"
+    f"<:kiyudot:1310311419878834267> **Ends** <t:{int(end_time.timestamp())}:R>\n\n"
+    f"{interaction.user.mention} *1 Winner*"
+),
     embed.set_footer(text=f"Hosted by {interaction.user.name}", icon_url=interaction.user.display_avatar.url)
 
     view = GiveawayView("temp")
