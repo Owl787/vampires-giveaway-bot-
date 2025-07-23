@@ -1,13 +1,3 @@
-import discord
-from discord.ext import commands
-from discord import app_commands
-from discord.ui import View, Button
-import random
-import asyncio
-import os
-import re
-from datetime import datetime, timedelta, timezone
-from dotenv import load_dotenv
 import discord from discord.ext import commands from discord import app_commands from discord.ui import View, Button import random import asyncio import os import re from datetime import datetime, timedelta, timezone from dotenv import load_dotenv
 
 load_dotenv() TOKEN = os.getenv("DISCORD_TOKEN")
@@ -127,7 +117,77 @@ for winner_id in winners:
     except:
         pass
 
-(rest of the code remains unchanged)
+@bot.tree.command(name="reroll", description="Reroll a giveaway") @app_commands.describe( message_id="Giveaway message ID to reroll", number_of_winners="Number of new winners to pick" ) async def reroll(interaction: discord.Interaction, message_id: str, number_of_winners: int): try: msg_id = int(message_id) giveaway = giveaways.get(msg_id) if not giveaway or not giveaway["ended"]: await interaction.response.send_message("❌ Giveaway not found or not ended yet.", ephemeral=True) return
+
+participants = list(giveaway["participants"])
+    prize = giveaway["prize"]
+
+    if not participants:
+        await interaction.response.send_message("❌ No participants to reroll.", ephemeral=True)
+        return
+
+    if number_of_winners > len(participants):
+        number_of_winners = len(participants)
+
+    new_winners = random.sample(participants, number_of_winners)
+    winner_mentions = ", ".join(f"<@{uid}>" for uid in new_winners)
+
+    await interaction.channel.send(f"🔁 New winner(s): {winner_mentions} for **{prize}**")
+
+    for winner_id in new_winners:
+        user = await bot.fetch_user(winner_id)
+        if user:
+            try:
+                dm = discord.Embed(
+                    title="🔁 You were rerolled as a Winner!",
+                    description=(
+                        f"Hey {user.mention}, you were rerolled as a winner for:\n\n"
+                        f"**Prize:** {prize}\n"
+                        f"**Time:** <t:{int(datetime.now(timezone.utc).timestamp())}:F>"
+                    ),
+                    color=discord.Color.orange()
+                )
+                await user.send(embed=dm)
+            except:
+                pass
+
+    await interaction.response.send_message("✅ Reroll complete.", ephemeral=True)
+except Exception as e:
+    await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+@bot.tree.command(name="end", description="Manually end a giveaway") @app_commands.describe(message_id="Giveaway message ID to end") async def end(interaction: discord.Interaction, message_id: str): try: msg_id = int(message_id) giveaway = giveaways.get(msg_id) if not giveaway: await interaction.response.send_message("❌ Giveaway not found.", ephemeral=True) return if giveaway["ended"]: await interaction.response.send_message("⚠️ Giveaway already ended.", ephemeral=True) return
+
+await end_giveaway_by_id(msg_id, interaction.channel)
+    await interaction.response.send_message("✅ Giveaway ended manually.", ephemeral=True)
+except Exception as e:
+    await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
+
+@bot.tree.command(name="cancel", description="Cancel and delete an ongoing giveaway") @app_commands.describe(message_id="Giveaway message ID to cancel") async def cancel(interaction: discord.Interaction, message_id: str): try: msg_id = int(message_id) giveaway = giveaways.get(msg_id)
+
+if not giveaway:
+        await interaction.response.send_message("❌ Giveaway not found.", ephemeral=True)
+        return
+
+    if giveaway["ended"]:
+        await interaction.response.send_message("⚠️ Giveaway already ended.", ephemeral=True)
+        return
+
+    if giveaway["host"].id != interaction.user.id:
+        await interaction.response.send_message("❌ Only the giveaway host can cancel it.", ephemeral=True)
+        return
+
+    giveaways[msg_id]["ended"] = True
+    del giveaways[msg_id]
+
+    try:
+        message = await interaction.channel.fetch_message(msg_id)
+        await message.delete()
+    except:
+        pass
+
+    await interaction.response.send_message("❌ Giveaway cancelled and deleted.", ephemeral=True)
+except Exception as e:
+    await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
 
 if name == "main": bot.run(TOKEN)
 
