@@ -16,9 +16,8 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-giveaways = {}  # Store giveaways by message ID
+giveaways = {}
 
-# Helper to parse duration like '5d'
 def parse_duration(duration_str):
     pattern = r"(\d+)([smhd])"
     matches = re.findall(pattern, duration_str)
@@ -37,10 +36,10 @@ def parse_duration(duration_str):
             seconds += value * 86400
     return seconds
 
-# --- Button: Join ---
+# 🟩 Join Button (now grey)
 class JoinButton(Button):
     def __init__(self, message_id):
-        super().__init__(label="🎉 Join", style=discord.ButtonStyle.success, custom_id=f"join_{message_id}")
+        super().__init__(label="🎉 Join", style=discord.ButtonStyle.secondary, custom_id=f"join_{message_id}")
         self.message_id = message_id
 
     async def callback(self, interaction: discord.Interaction):
@@ -57,16 +56,13 @@ class JoinButton(Button):
             giveaway["participants"].add(user_id)
             await interaction.response.send_message("You joined the giveaway!", ephemeral=True)
 
-        # Update the buttons with new participant count
         view = GiveawayView(self.message_id)
         await giveaway["message"].edit(view=view)
 
-# --- Button: Participants ---
 class ParticipantsButton(Button):
     def __init__(self, message_id, count):
         super().__init__(label=f"{count} Participants", style=discord.ButtonStyle.secondary, disabled=True)
 
-# --- View with both buttons ---
 class GiveawayView(View):
     def __init__(self, message_id):
         super().__init__(timeout=None)
@@ -79,7 +75,6 @@ class GiveawayView(View):
         count = len(giveaways.get(self.message_id, {}).get("participants", []))
         self.add_item(ParticipantsButton(self.message_id, count))
 
-# --- Slash command to start giveaway ---
 @bot.tree.command(name="giveaway", description="Start a giveaway")
 @app_commands.describe(
     prize="Giveaway prize (e.g., $100 Nitro)",
@@ -100,13 +95,16 @@ async def giveaway_command(interaction: discord.Interaction, prize: str, duratio
 
     await interaction.channel.send("🎉 **Giveaway** 🎉")
 
+    # ✅ Replace this with your emoji — customize this line:
+    discord_emoji = "<:emoji_1:1397580701024522250>"
+
     embed = discord.Embed(
         description=(
-            f"**{prize}**\n"
+            f"{discord_emoji} **{prize}**\n"
             f"Ends: <t:{timestamp_unix}:R> (<t:{timestamp_unix}:f>)\n"
             f"Winners: **{winners}**"
         ),
-        color=discord.Color.purple()
+        color=discord.Color.red()  # 🟥 Embed is now red
     )
 
     embed.set_footer(text=f"Hosted by {interaction.user}", icon_url=interaction.user.display_avatar.url)
@@ -134,7 +132,6 @@ async def giveaway_command(interaction: discord.Interaction, prize: str, duratio
     if giveaway and not giveaway["ended"]:
         await end_giveaway(message_id)
 
-# --- End giveaway function ---
 async def end_giveaway(message_id):
     giveaway = giveaways.get(message_id)
     if not giveaway or giveaway["ended"]:
@@ -164,7 +161,6 @@ async def end_giveaway(message_id):
 
     giveaway["winners_list"] = winners_list
 
-# --- Slash command to end giveaway early ---
 @bot.tree.command(name="end", description="End an ongoing giveaway early")
 @app_commands.describe(message_id="Message ID of the giveaway to end")
 async def end_command(interaction: discord.Interaction, message_id: str):
@@ -183,7 +179,6 @@ async def end_command(interaction: discord.Interaction, message_id: str):
     await end_giveaway(message_id)
     await interaction.response.send_message(f"Giveaway {message_id} ended early.", ephemeral=True)
 
-# --- Slash command to reroll winners ---
 @bot.tree.command(name="reroll", description="Reroll winners for an ended giveaway")
 @app_commands.describe(message_id="Message ID of the giveaway to reroll")
 async def reroll_command(interaction: discord.Interaction, message_id: str):
@@ -216,7 +211,6 @@ async def reroll_command(interaction: discord.Interaction, message_id: str):
     embed.description = f"{description}\n\n{result}"
     await msg.edit(embed=embed)
 
-# --- Bot Events ---
 @bot.event
 async def on_ready():
     await bot.tree.sync()
