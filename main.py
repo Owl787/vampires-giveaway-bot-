@@ -16,9 +16,8 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-giveaways = {}  # Store giveaways by message ID
+giveaways = {}
 
-# Helper to parse duration like '5d'
 def parse_duration(duration_str):
     pattern = r"(\d+)([smhd])"
     matches = re.findall(pattern, duration_str)
@@ -37,7 +36,6 @@ def parse_duration(duration_str):
             seconds += value * 86400
     return seconds
 
-# --- Button: Join ---
 class JoinButton(Button):
     def __init__(self, message_id):
         super().__init__(label="🎉 Join", style=discord.ButtonStyle.success, custom_id=f"join_{message_id}")
@@ -57,16 +55,13 @@ class JoinButton(Button):
             giveaway["participants"].add(user_id)
             await interaction.response.send_message("You joined the giveaway!", ephemeral=True)
 
-        # Update the buttons with new participant count
         view = GiveawayView(self.message_id)
         await giveaway["message"].edit(view=view)
 
-# --- Button: Participants ---
 class ParticipantsButton(Button):
     def __init__(self, message_id, count):
         super().__init__(label=f"{count} Participants", style=discord.ButtonStyle.secondary, disabled=True)
 
-# --- View with both buttons ---
 class GiveawayView(View):
     def __init__(self, message_id):
         super().__init__(timeout=None)
@@ -79,7 +74,6 @@ class GiveawayView(View):
         count = len(giveaways.get(self.message_id, {}).get("participants", []))
         self.add_item(ParticipantsButton(self.message_id, count))
 
-# --- Slash command to start giveaway ---
 @bot.tree.command(name="giveaway", description="Start a giveaway")
 @app_commands.describe(
     prize="Giveaway prize (e.g., $100 Nitro)",
@@ -97,20 +91,19 @@ async def giveaway_command(interaction: discord.Interaction, prize: str, duratio
 
     end_time = datetime.utcnow() + timedelta(seconds=seconds)
 
-    # Send giveaway title message separately
-    await interaction.channel.send("🎉 **Giveaway** 🎉")
+    # Send prize message above embed
+    await interaction.channel.send(f"**🎁 {prize}**")
 
     embed = discord.Embed(
         description=(
-            f":kiyudot: **React** with 🎉 to __enter__!\n"
-            f":kiyudot: **Ends** <t:{int(end_time.timestamp())}:R>\n\n"
-            f"{interaction.user.mention} *{winners} Winner{'s' if winners > 1 else ''}*"
+            f"_React with 🎉 to enter!_\n"
+            f"_Ends_ <t:{int(end_time.timestamp())}:R>\n"
         ),
         color=discord.Color.purple()
     )
 
-    embed.add_field(name="Prize", value=prize, inline=False)
-    embed.set_footer(text=f"Hosted by {interaction.user}", icon_url=interaction.user.display_avatar.url)
+    embed.set_thumbnail(url=bot.user.display_avatar.url)
+    embed.set_footer(text=f"{winners} winner{'s' if winners > 1 else ''} • Hosted by {interaction.user.name}")
 
     view = GiveawayView("temp")
     msg = await interaction.channel.send(embed=embed, view=view)
@@ -126,12 +119,10 @@ async def giveaway_command(interaction: discord.Interaction, prize: str, duratio
         "host": interaction.user.id,
     }
 
-    # Update buttons with real message ID
     view = GiveawayView(message_id)
     await msg.edit(view=view)
     await interaction.response.send_message("Giveaway started!", ephemeral=True)
 
-    # Wait for giveaway end
     await asyncio.sleep(seconds)
     giveaway = giveaways.get(message_id)
     if giveaway and not giveaway["ended"]:
@@ -150,24 +141,22 @@ async def end_giveaway(message_id):
     channel = msg.channel
 
     if len(participants) < winners or len(participants) == 0:
-        result = "Not enough participants to select a winner."
+        result = "❌ _Not enough participants to select a winner._"
         winners_list = []
     else:
         winners_list = random.sample(participants, min(winners, len(participants)))
         mentions = ", ".join(f"<@{uid}>" for uid in winners_list)
-        result = f"🎉 Congratulations {mentions}! You won **{prize}**!"
+        result = f"🏆 _Winner:_ {mentions}"
 
     embed = msg.embeds[0]
     embed.color = discord.Color.green()
-    embed.description += f"\n\n{result}"
+    embed.description += f"\n{result}"
+    embed.set_image(url="https://example.com/winner.png")  # Replace with your own image URL
 
     await msg.edit(embed=embed, view=None)
     await channel.send(result)
-
-    # Save winners for reroll command
     giveaway["winners_list"] = winners_list
 
-# --- Slash command to end giveaway early ---
 @bot.tree.command(name="end", description="End an ongoing giveaway early")
 @app_commands.describe(message_id="Message ID of the giveaway to end")
 async def end_command(interaction: discord.Interaction, message_id: str):
@@ -178,8 +167,6 @@ async def end_command(interaction: discord.Interaction, message_id: str):
     if giveaway["ended"]:
         await interaction.response.send_message("Giveaway has already ended.", ephemeral=True)
         return
-
-    # Optional: Only host or admins can end giveaway
     if interaction.user.id != giveaway["host"] and not interaction.user.guild_permissions.manage_guild:
         await interaction.response.send_message("You do not have permission to end this giveaway.", ephemeral=True)
         return
@@ -187,7 +174,6 @@ async def end_command(interaction: discord.Interaction, message_id: str):
     await end_giveaway(message_id)
     await interaction.response.send_message(f"Giveaway {message_id} ended early.", ephemeral=True)
 
-# --- Slash command to reroll winners ---
 @bot.tree.command(name="reroll", description="Reroll winners for an ended giveaway")
 @app_commands.describe(message_id="Message ID of the giveaway to reroll")
 async def reroll_command(interaction: discord.Interaction, message_id: str):
@@ -211,18 +197,14 @@ async def reroll_command(interaction: discord.Interaction, message_id: str):
     mentions = ", ".join(f"<@{uid}>" for uid in winners_list)
     prize = giveaway["prize"]
 
-    result = f"🎉 Reroll results! Congratulations {mentions}! You won **{prize}**!"
+    result = f"🔁 Reroll winner: {mentions}"
     await interaction.response.send_message(result)
 
-    # Also update the original giveaway message embed with new winners
     msg = giveaway["message"]
     embed = msg.embeds[0]
-    # Replace last line after double newline with new result
-    description = embed.description.split("\n\n")[0]
-    embed.description = f"{description}\n\n{result}"
+    embed.description += f"\n{result}"
     await msg.edit(embed=embed)
 
-# --- Bot Events ---
 @bot.event
 async def on_ready():
     await bot.tree.sync()
