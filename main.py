@@ -98,15 +98,11 @@ async def giveaway_command(interaction: discord.Interaction, prize: str, duratio
     end_time = datetime.utcnow() + timedelta(seconds=seconds)
     timestamp_unix = int(end_time.timestamp())
 
-    # Send giveaway title message separately
     await interaction.channel.send("🎉 **Giveaway** 🎉")
-
-    # Bot avatar URL
-    bot_avatar_url = bot.user.display_avatar.url if bot.user else None
 
     embed = discord.Embed(
         description=(
-            f"![ ]({bot_avatar_url}) **{prize}**\n"
+            f"**{prize}**\n"
             f"Ends: <t:{timestamp_unix}:R> (<t:{timestamp_unix}:f>)\n"
             f"Winners: **{winners}**"
         ),
@@ -114,8 +110,6 @@ async def giveaway_command(interaction: discord.Interaction, prize: str, duratio
     )
 
     embed.set_footer(text=f"Hosted by {interaction.user}", icon_url=interaction.user.display_avatar.url)
-    if bot_avatar_url:
-        embed.set_thumbnail(url=bot_avatar_url)
 
     view = GiveawayView("temp")
     msg = await interaction.channel.send(embed=embed, view=view)
