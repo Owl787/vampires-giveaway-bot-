@@ -99,7 +99,7 @@ async def giveaway_command(interaction: discord.Interaction, prize: str, duratio
 
     embed = discord.Embed(
         description=(
-            f"{discord_emoji} **{prize}**\n\n"
+            f"{discord_emoji} # **{prize}**\n\n"
             f"Ends: <t:{timestamp_unix}:R> (<t:{timestamp_unix}:f>)\n"
             f"Winners: **{winners}**"
         ),
