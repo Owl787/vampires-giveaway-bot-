@@ -36,7 +36,6 @@ def parse_duration(duration_str):
             seconds += value * 86400
     return seconds
 
-# 🟩 Join Button (now grey)
 class JoinButton(Button):
     def __init__(self, message_id):
         super().__init__(label="🎉 Join", style=discord.ButtonStyle.secondary, custom_id=f"join_{message_id}")
@@ -95,16 +94,16 @@ async def giveaway_command(interaction: discord.Interaction, prize: str, duratio
 
     await interaction.channel.send("🎉 **Giveaway** 🎉")
 
-    # ✅ Replace this with your emoji — customize this line:
-    discord_emoji = "<:emoji_1:1397580701024522250>"
+    # 🔴 Use your real emoji here
+    discord_emoji = "<:emoji_1:1397580701024522250>"  # Replace with your custom emoji
 
     embed = discord.Embed(
         description=(
-            f"{discord_emoji} **{prize}**\n"
+            f"{discord_emoji} **{prize}**\n\n"
             f"Ends: <t:{timestamp_unix}:R> (<t:{timestamp_unix}:f>)\n"
             f"Winners: **{winners}**"
         ),
-        color=discord.Color.red()  # 🟥 Embed is now red
+        color=discord.Color.red()
     )
 
     embed.set_footer(text=f"Hosted by {interaction.user}", icon_url=interaction.user.display_avatar.url)
