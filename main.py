@@ -94,18 +94,17 @@ async def giveaway_command(interaction: discord.Interaction, prize: str, duratio
 
     await interaction.channel.send("🎉 **Giveaway** 🎉")
 
-    # 🔴 Use your real emoji here
-    discord_emoji = "<:emoji_1:1397580701024522250>"  # Replace with your custom emoji
+    # Replace this with your own emoji or keep 🎁
+    discord_emoji = "🎁"
 
     embed = discord.Embed(
+        title=f"{discord_emoji} {prize}",
         description=(
-            f"{discord_emoji} # {prize}\n\n"
             f"Ends: <t:{timestamp_unix}:R> (<t:{timestamp_unix}:f>)\n"
             f"Winners: **{winners}**"
         ),
         color=discord.Color.red()
     )
-
     embed.set_footer(text=f"Hosted by {interaction.user}", icon_url=interaction.user.display_avatar.url)
 
     view = GiveawayView("temp")
