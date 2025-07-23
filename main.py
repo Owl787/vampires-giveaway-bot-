@@ -96,21 +96,26 @@ async def giveaway_command(interaction: discord.Interaction, prize: str, duratio
         return
 
     end_time = datetime.utcnow() + timedelta(seconds=seconds)
+    timestamp_unix = int(end_time.timestamp())
 
     # Send giveaway title message separately
     await interaction.channel.send("🎉 **Giveaway** 🎉")
 
+    # Bot avatar URL
+    bot_avatar_url = bot.user.display_avatar.url if bot.user else None
+
     embed = discord.Embed(
         description=(
-            f":kiyudot: **React** with 🎉 to __enter__!\n"
-            f":kiyudot: **Ends** <t:{int(end_time.timestamp())}:R>\n\n"
-            f"{interaction.user.mention} *{winners} Winner{'s' if winners > 1 else ''}*"
+            f"![ ]({bot_avatar_url}) **{prize}**\n"
+            f"Ends: <t:{timestamp_unix}:R> (<t:{timestamp_unix}:f>)\n"
+            f"Winners: **{winners}**"
         ),
         color=discord.Color.purple()
     )
 
-    embed.add_field(name="Prize", value=prize, inline=False)
     embed.set_footer(text=f"Hosted by {interaction.user}", icon_url=interaction.user.display_avatar.url)
+    if bot_avatar_url:
+        embed.set_thumbnail(url=bot_avatar_url)
 
     view = GiveawayView("temp")
     msg = await interaction.channel.send(embed=embed, view=view)
@@ -126,17 +131,16 @@ async def giveaway_command(interaction: discord.Interaction, prize: str, duratio
         "host": interaction.user.id,
     }
 
-    # Update buttons with real message ID
     view = GiveawayView(message_id)
     await msg.edit(view=view)
     await interaction.response.send_message("Giveaway started!", ephemeral=True)
 
-    # Wait for giveaway end
     await asyncio.sleep(seconds)
     giveaway = giveaways.get(message_id)
     if giveaway and not giveaway["ended"]:
         await end_giveaway(message_id)
 
+# --- End giveaway function ---
 async def end_giveaway(message_id):
     giveaway = giveaways.get(message_id)
     if not giveaway or giveaway["ended"]:
@@ -164,7 +168,6 @@ async def end_giveaway(message_id):
     await msg.edit(embed=embed, view=None)
     await channel.send(result)
 
-    # Save winners for reroll command
     giveaway["winners_list"] = winners_list
 
 # --- Slash command to end giveaway early ---
@@ -179,7 +182,6 @@ async def end_command(interaction: discord.Interaction, message_id: str):
         await interaction.response.send_message("Giveaway has already ended.", ephemeral=True)
         return
 
-    # Optional: Only host or admins can end giveaway
     if interaction.user.id != giveaway["host"] and not interaction.user.guild_permissions.manage_guild:
         await interaction.response.send_message("You do not have permission to end this giveaway.", ephemeral=True)
         return
@@ -214,10 +216,8 @@ async def reroll_command(interaction: discord.Interaction, message_id: str):
     result = f"🎉 Reroll results! Congratulations {mentions}! You won **{prize}**!"
     await interaction.response.send_message(result)
 
-    # Also update the original giveaway message embed with new winners
     msg = giveaway["message"]
     embed = msg.embeds[0]
-    # Replace last line after double newline with new result
     description = embed.description.split("\n\n")[0]
     embed.description = f"{description}\n\n{result}"
     await msg.edit(embed=embed)
@@ -229,4 +229,3 @@ async def on_ready():
     print(f"Logged in as {bot.user}!")
 
 bot.run(TOKEN)
-                      
