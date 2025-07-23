@@ -36,7 +36,7 @@ def parse_duration(duration_str):
 
 class GiveawayButton(Button):
     def __init__(self, message_id: int):
-        super().__init__(label="🎉 Join the Giveaway!", style=discord.ButtonStyle.danger, custom_id=f"giveaway_{message_id}")
+        super().__init__(label="🎉 Join", style=discord.ButtonStyle.danger, custom_id=f"giveaway_{message_id}")
         self.message_id = message_id
 
     async def callback(self, interaction: discord.Interaction):
@@ -82,12 +82,12 @@ async def giveaway(interaction: discord.Interaction, duration: str, winners: int
     host = interaction.user.mention
 
     embed = discord.Embed(
-        title=f"🎁 {prize}",
+        title="🎉 Giveaway 🎉",
         description=(
-            f"Click the giveaway button to join the giveaway!\n\n"
-            f"**Hosted By:** {host}\n"
-            f"**Ends:** <t:{end_time}:R> (<t:{end_time}:f>)\n"
-            f"**{winners} Winner(s)** • 👥 0 Participants"
+            f"{prize}\n\n"
+            f"• **React with 🎉 to enter!**\n"
+            f"• **Ends in <t:{end_time}:R>**\n\n"
+            f"👤 {winners} Winner(s) • 👥 0 Participants"
         ),
         color=discord.Color.red()
     )
@@ -110,10 +110,10 @@ async def giveaway(interaction: discord.Interaction, duration: str, winners: int
         while not giveaways[msg.id]["ended"]:
             await asyncio.sleep(5)
             embed.description = (
-                f"Click the giveaway button to join the giveaway!\n\n"
-                f"**Hosted By:** {host}\n"
-                f"**Ends:** <t:{end_time}:R> (<t:{end_time}:f>)\n"
-                f"**{winners} Winner(s)** • 👥 {len(giveaways[msg.id]['participants'])} Participants"
+                f"{prize}\n\n"
+                f"• **React with 🎉 to enter!**\n"
+                f"• **Ends in <t:{end_time}:R>**\n\n"
+                f"👤 {winners} Winner(s) • 👥 {len(giveaways[msg.id]['participants'])} Participants"
             )
             await msg.edit(embed=embed)
 
@@ -155,23 +155,6 @@ async def end_giveaway_by_id(message_id: int, channel):
     )
     await channel.send(embed=embed)
 
-    for winner_id in winners:
-        user = await bot.fetch_user(winner_id)
-        if user:
-            try:
-                dm = discord.Embed(
-                    title="🎉 Congratulations!",
-                    description=(
-                        f"Hey {user.mention}, you won the giveaway!\n\n"
-                        f"**Prize:** {prize}\n"
-                        f"**Time:** <t:{end_time}:F>"
-                    ),
-                    color=discord.Color.green()
-                )
-                await user.send(embed=dm)
-            except:
-                pass
-
 @bot.tree.command(name="reroll", description="Reroll a giveaway")
 @app_commands.describe(message_id="Giveaway message ID to reroll")
 async def reroll(interaction: discord.Interaction, message_id: str):
@@ -197,20 +180,6 @@ async def reroll(interaction: discord.Interaction, message_id: str):
         winner_mentions = ", ".join(f"<@{uid}>" for uid in new_winners)
 
         await interaction.channel.send(f"🔁 New winner(s): {winner_mentions} for **{prize}**")
-
-        for winner_id in new_winners:
-            user = await bot.fetch_user(winner_id)
-            if user:
-                try:
-                    dm = discord.Embed(
-                        title="🔁 You were rerolled as a Winner!",
-                        description=f"Hey {user.mention}, you were rerolled as a winner for:\n\n**Prize:** {prize}",
-                        color=discord.Color.orange()
-                    )
-                    await user.send(embed=dm)
-                except:
-                    pass
-
         await interaction.response.send_message("✅ Reroll complete.", ephemeral=True)
     except Exception as e:
         await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
