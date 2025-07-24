@@ -46,7 +46,7 @@ def parse_duration(duration_str):
 # Button classes
 class JoinButton(Button):
     def __init__(self, message_id):
-        super().__init__(label="<:emoji_4:1397733675520757770> Join", style=discord.ButtonStyle.secondary, custom_id=f"join_{message_id}")
+        super().__init__(label=":tada:Join", style=discord.ButtonStyle.secondary, custom_id=f"join_{message_id}")
         self.message_id = message_id
 
     async def callback(self, interaction: discord.Interaction):
