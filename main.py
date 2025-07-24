@@ -21,11 +21,11 @@ giveaways = {}
 # Duration Parser
 DURATION_MAP = {
     "s": 1, "sec": 1, "second": 1, "seconds": 1,
-    "m": 60, "min": 60, "minute": 60, "minutes": 60,
+    "min": 60, "min": 60, "minute": 60, "minutes": 60,
     "h": 3600, "hour": 3600, "hours": 3600,
     "d": 86400, "day": 86400, "days": 86400,
     "w": 604800, "week": 604800, "weeks": 604800,
-    "month": 2592000, "months": 2592000,
+    "m": 2592000, "months": 2592000,
     "y": 31536000, "year": 31536000, "years": 31536000
 }
 
@@ -46,7 +46,7 @@ def parse_duration(duration_str):
 # Button classes
 class JoinButton(Button):
     def __init__(self, message_id):
-        super().__init__(label="🎉 Join", style=discord.ButtonStyle.secondary, custom_id=f"join_{message_id}")
+        super().__init__(label="<:emoji_4:1397733675520757770> Join", style=discord.ButtonStyle.secondary, custom_id=f"join_{message_id}")
         self.message_id = message_id
 
     async def callback(self, interaction: discord.Interaction):
