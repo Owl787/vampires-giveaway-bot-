@@ -46,7 +46,7 @@ def parse_duration(duration_str):
 # Button classes
 class JoinButton(Button):
     def __init__(self, message_id):
-        super().__init__(label=":tada:Join", style=discord.ButtonStyle.secondary, custom_id=f"join_{message_id}")
+        super().__init__(label="🎉 Join", style=discord.ButtonStyle.secondary, custom_id=f"join_{message_id}")
         self.message_id = message_id
 
     async def callback(self, interaction: discord.Interaction):
@@ -101,9 +101,13 @@ async def vampires_giveaway(interaction: discord.Interaction, prize: str, durati
     emoji = "<:emoji_3:1397732039708643472>"
 
     embed = discord.Embed(
-        title=f"{emoji} {prize}",
-        description=f"Ends: <t:{timestamp_unix}:R> (<t:{timestamp_unix}:f>)\nWinners: **{winners}**",
-        color=discord.Color.red()
+    title=f"{emoji} {prize}",
+    description=(
+        "**React** with 🎉 to __enter__!\n\n"
+        f"Ends: <t:{timestamp_unix}:R> (<t:{timestamp_unix}:f>)\n"
+        f"Winners: **{winners}**"
+    ),
+    color=discord.Color.red()
     )
     embed.set_footer(text=f"Hosted by {interaction.user}", icon_url=interaction.user.display_avatar.url)
 
@@ -141,10 +145,14 @@ async def start_prefix(ctx, prize: str, duration: str, winners: int):
     emoji = "<:emoji_3:1397732039708643472>"
 
     embed = discord.Embed(
-        title=f"{emoji} {prize}",
-        description=f"Ends: <t:{timestamp_unix}:R> (<t:{timestamp_unix}:f>)\nWinners: **{winners}**",
-        color=discord.Color.red()
-    )
+    title=f"{emoji} {prize}",
+    description=(
+        "**React** with 🎉 to __enter__!\n\n"
+        f"Ends: <t:{timestamp_unix}:R> (<t:{timestamp_unix}:f>)\n"
+        f"Winners: **{winners}**"
+    ),
+    color=discord.Color.red()
+)
     embed.set_footer(text=f"Hosted by {ctx.author}", icon_url=ctx.author.display_avatar.url)
 
     view = GiveawayView("temp")
