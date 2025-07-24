@@ -103,7 +103,7 @@ async def vampires_giveaway(interaction: discord.Interaction, prize: str, durati
     embed = discord.Embed(
     title=f"{emoji} {prize}",
     description=(
-        "**React** with 🎉 to __enter__!\n\n"
+        "**React** with 🎉 to __enter__!\n"
         f"Ends: <t:{timestamp_unix}:R> (<t:{timestamp_unix}:f>)\n"
         f"Winners: **{winners}**"
     ),
@@ -147,7 +147,7 @@ async def start_prefix(ctx, prize: str, duration: str, winners: int):
     embed = discord.Embed(
     title=f"{emoji} {prize}",
     description=(
-        "**React** with 🎉 to __enter__!\n\n"
+        "**React** with 🎉 to __enter__!\n"
         f"Ends: <t:{timestamp_unix}:R> (<t:{timestamp_unix}:f>)\n"
         f"Winners: **{winners}**"
     ),
