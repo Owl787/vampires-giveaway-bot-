@@ -98,7 +98,7 @@ async def vampires_giveaway(interaction: discord.Interaction, prize: str, durati
 
     end_time = datetime.utcnow() + timedelta(seconds=seconds)
     timestamp_unix = int(end_time.timestamp())
-    emoji = "🎁"
+    emoji = "<:emoji_3:1397732039708643472>"
 
     embed = discord.Embed(
         title=f"{emoji} {prize}",
@@ -138,7 +138,7 @@ async def start_prefix(ctx, prize: str, duration: str, winners: int):
 
     end_time = datetime.utcnow() + timedelta(seconds=seconds)
     timestamp_unix = int(end_time.timestamp())
-    emoji = "🎁"
+    emoji = "<:emoji_3:1397732039708643472>"
 
     embed = discord.Embed(
         title=f"{emoji} {prize}",
